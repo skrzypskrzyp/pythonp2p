@@ -62,7 +62,7 @@ try:
     serverEndpoint = TCP4ServerEndpoint(reactor, args.port_listen, interface="localhost")
     serverEndpoint.listen(factory)
 except CannotListenError:
-    print("[!] Address in use")
+    print("Could not connect")
     raise SystemExit
 
 #sender
