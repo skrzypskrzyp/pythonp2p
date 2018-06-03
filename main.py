@@ -1,10 +1,12 @@
 import argparse
+import random
 
 from twisted.internet.endpoints import TCP4ServerEndpoint, TCP4ClientEndpoint, connectProtocol
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet import reactor
-from uuid import uuid4
+from twisted.internet.task import LoopingCall
 
+from uuid import uuid4
 
 parser = argparse.ArgumentParser(description="ncpoc")
 parser.add_argument('--port_listen', type=int, default=5008)
@@ -22,23 +24,24 @@ class P2PProtocol(Protocol):
         print("initializing protocol")
         self.factory = factory
         self.nodeid = self.factory.nodeid
+        self.loopCall = LoopingCall(self.sendDummy)
 
     def sendDummy(self):
         print("sending dummy message")
-
-        self.transport.write("DUMMY\n")
+        self.transport.write(b'DUMMY\r\n')
 
     def dataReceived(self, data):
         for line in data.splitlines():
             line = line.strip()
-            print("RECEIVED " + line)
+            print("received  " + str(line, 'utf-8'))
     
     def connectionMade(self):
-        print("Connection from", self.transport.getPeer())
+        interval = random.randint(1, 10)
+        print("connection from", self.transport.getPeer())
+        print("will send dummy message every " + str(interval) + " seconds")
+        self.loopCall.start(interval)
 
     def connectionLost(self, reason):
-        if self.remote_nodeid in self.factory.peers:
-            self.factory.peers.pop(self.remote_nodeid)
         print (self.nodeid +  " disconnected")
 
 class P2PProtocolFactory(Factory):
@@ -48,7 +51,7 @@ class P2PProtocolFactory(Factory):
         print("initializing factory")
 
     def buildProtocol(self, addr):
-        print("Building protocol")
+        print("building protocol")
         return P2PProtocol(self)
         
 
@@ -66,7 +69,7 @@ except CannotListenError:
     raise SystemExit
 
 #sender
-clientEndpoint = TCP4ClientEndpoint(reactor, "localhost", args.port_send)
+clientEndpoint = TCP4ClientEndpoint(reactor, "localhost", int(args.port_send))
 d = connectProtocol(clientEndpoint, P2PProtocol(factory))
 d.addCallback(gotProtocol)
 
